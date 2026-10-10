@@ -1,0 +1,19 @@
+# Databricks App — the "MediCore Command Center" web frontend.
+resources:
+  apps:
+    hc_erp_portal:
+      name: hc-erp-portal-${bundle.target}
+      description: "Healthcare ERP portal on the Lakehouse (gold KPIs, masked patient lookup, Genie chat)"
+      source_code_path: ../app
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        - name: genie-space
+          genie_space:
+            space_id: "<YOUR_GENIE_SPACE_ID>"
+            permission: CAN_RUN  
+      user_api_scopes:          # on-behalf-of-user auth → UC masks/row filters apply per viewer
+        - sql
+        - dashboards.genie

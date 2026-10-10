@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HC ERP Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0d12; --bg-2:#0e1218; --panel:#121720; --panel-2:#171d27; --line:#232b37; --line-2:#2c3542;
+    --ink:#eef1f6; --ink-2:#c9d0db; --muted:#8792a3;
+    --gold:#e8b04b; --gold-2:#f6d27e; --gold-soft:rgba(232,176,75,.12); --gold-line:rgba(232,176,75,.35);
+    --up:#4ade80; --down:#f87171; --info:#7aa2ff;
+    --r:16px; --mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{margin:0;min-height:100vh;background:radial-gradient(1200px 600px at 80% -10%,#1a1408 0%,transparent 55%) no-repeat,var(--bg);color:var(--ink);
+       font-family:'Manrope',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+  button,input,select{font:inherit;color:inherit}
+  .app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+
+  /* ---------- sidebar ---------- */
+  aside{background:linear-gradient(180deg,#0f131a,#0b0e13);border-right:1px solid var(--line);padding:22px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:6px}
+  .brand{display:flex;align-items:center;gap:12px;padding:4px 10px 22px}
+  .brand b{font-size:17px;font-weight:800;letter-spacing:.2px}
+  .brand small{display:block;color:var(--muted);font-size:11px;font-weight:500;margin-top:2px}
+  .nav{display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;border-radius:12px;border:1px solid transparent;background:none;
+       color:var(--ink-2);font-weight:600;cursor:pointer;text-align:left;position:relative}
+  .nav svg{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .nav:hover{background:#151a23;color:var(--ink)}
+  .nav.active{background:linear-gradient(90deg,var(--gold-soft),transparent);border-color:var(--line);color:var(--ink)}
+  .nav.active::before{content:"";position:absolute;left:-14px;top:10px;bottom:10px;width:3px;border-radius:3px;background:var(--gold)}
+  .nav.active svg{stroke:var(--gold)}
+  .side-foot{margin-top:auto;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);font-size:12px;color:var(--muted);line-height:1.5}
+  .side-foot b{color:var(--ink-2)}
+
+  /* ---------- top bar ---------- */
+  main{min-width:0;padding:22px 28px 40px}
+  .top{display:flex;align-items:center;gap:16px;margin-bottom:22px}
+  .top h1{font-size:22px;margin:0;font-weight:800;letter-spacing:.2px}
+  .top .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .search{flex:1;max-width:520px;margin-left:auto;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
+          border-radius:12px;padding:0 6px 0 14px;height:44px}
+  .search input{flex:1;background:none;border:0;outline:none;color:var(--ink)}
+  .search input::placeholder{color:var(--muted)}
+  .search svg{width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2}
+  .go{width:34px;height:34px;border-radius:9px;border:0;background:var(--gold);color:#1b1407;display:grid;place-items:center;cursor:pointer;flex:none}
+  .go svg{width:16px;height:16px;stroke:#1b1407;fill:none;stroke-width:2.4}
+  .user{position:relative}
+  .avatar{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px 10px 5px 5px;cursor:pointer}
+  .avatar span{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#25324d;color:#cfe0ff;font-weight:700;font-size:13px}
+  .avatar svg{width:14px;height:14px;stroke:var(--muted);fill:none;stroke-width:2}
+  .menu{display:none;position:absolute;right:0;top:52px;min-width:260px;background:var(--panel-2);border:1px solid var(--line-2);border-radius:12px;padding:14px;z-index:20;box-shadow:0 20px 40px rgba(0,0,0,.45)}
+  .menu.open{display:block}
+  .menu .em{font-weight:700;word-break:break-all}
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:99px;background:var(--gold-soft);color:var(--gold-2);border:1px solid var(--gold-line);margin:6px 4px 0 0}
+
+  /* ---------- cards ---------- */
+  section.page{display:none} section.page.active{display:block}
+  .grid{display:grid;gap:18px}
+  .kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .card{background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;min-width:0}
+  .card h2{font-size:16px;margin:0;font-weight:700}
+  .card .hint{color:var(--muted);font-size:12px;margin-top:3px}
+  .card-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+  .card-head .right{margin-left:auto}
+  .kpi{position:relative;overflow:hidden}
+  .kpi .ic{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:var(--gold-soft);border:1px solid var(--gold-line)}
+  .kpi .ic svg{width:21px;height:21px;stroke:var(--gold);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .kpi .label{color:var(--ink-2);font-weight:600;margin-top:14px;font-size:13px}
+  .kpi .val{font-size:clamp(22px,2.3vw,30px);font-weight:800;margin-top:4px;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpi .foot{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:8px}
+  .delta{font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:3px}
+  .delta.up{color:var(--up)} .delta.down{color:var(--down)} .delta.flat{color:var(--muted)}
+  .spark{width:110px;height:36px;flex:none}
+  .main-grid{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);margin-top:18px;align-items:start}
+  .stack{display:grid;gap:18px}
+  select.pill{background:var(--bg-2);border:1px solid var(--line-2);border-radius:9px;padding:6px 10px;color:var(--ink-2)}
+  .stats{display:flex;gap:18px;flex-wrap:wrap;margin:-4px 0 10px}
+  .stats div{font-size:12px;color:var(--muted)} .stats b{display:block;color:var(--ink);font-size:16px;margin-top:2px}
+
+  /* ---------- patient ---------- */
+  .field{display:flex;align-items:center;gap:10px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:11px;padding:0 6px 0 12px;height:44px}
+  .field input{flex:1;background:none;border:0;outline:none}
+  .field input::placeholder{color:var(--muted)}
+  .field svg{width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2}
+  .results{margin-top:12px;display:grid;gap:6px;max-height:190px;overflow:auto}
+  .res{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:1px solid transparent;cursor:pointer;background:none;text-align:left;width:100%}
+  .res:hover,.res.sel{background:var(--bg-2);border-color:var(--line-2)}
+  .res .mini{width:28px;height:28px;border-radius:50%;background:#1e2633;display:grid;place-items:center;font-size:11px;color:var(--muted);flex:none}
+  .res .m{color:var(--muted);font-size:12px}
+  .pcard{margin-top:14px;border:1px solid var(--line);border-radius:14px;background:var(--bg-2);padding:16px}
+  .phead{display:flex;align-items:center;gap:14px}
+  .phead .pic{width:46px;height:46px;border-radius:50%;background:#1e2633;display:grid;place-items:center}
+  .phead .pic svg{width:22px;height:22px;fill:#8792a3}
+  .phead .nm{font-size:17px;font-weight:700}
+  .phead .meta{color:var(--muted);font-size:12.5px;margin-top:3px}
+  .tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:16px 0 4px}
+  .tabs button{background:none;border:0;padding:8px 0 10px;color:var(--muted);font-weight:600;cursor:pointer;border-bottom:2px solid transparent}
+  .tabs button.active{color:var(--gold-2);border-color:var(--gold)}
+  .rows .r{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--line)}
+  .rows .r:last-child{border:0}
+  .rows .r svg{width:17px;height:17px;stroke:var(--muted);fill:none;stroke-width:1.8;flex:none}
+  .rows .k{color:var(--ink-2);width:150px;flex:none}
+  .rows .v{font-weight:600}
+  .badge{display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:7px}
+  .badge.low{background:rgba(74,222,128,.14);color:var(--up)} .badge.med{background:var(--gold);color:#1b1407} .badge.high{background:rgba(248,113,113,.18);color:var(--down)}
+  .masked{color:var(--gold-2);background:var(--gold-soft);border-radius:5px;padding:1px 5px;font-family:var(--mono);font-size:12px}
+  .empty{color:var(--muted);padding:18px 4px;text-align:center}
+  .err{color:var(--down)}
+
+  /* ---------- tables ---------- */
+  .tw{overflow:auto;max-height:560px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.6px;padding:10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+  td{padding:10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  tr.click{cursor:pointer} tr.click:hover td{background:var(--bg-2)}
+  td.num{font-family:var(--mono);font-size:12.5px}
+
+  /* ---------- genie ---------- */
+  .chat{display:flex;flex-direction:column;gap:12px;overflow:auto;padding:2px}
+  .msg{display:flex;gap:10px;align-items:flex-start}
+  .msg .who{width:32px;height:32px;border-radius:50%;flex:none;display:grid;place-items:center}
+  .msg.me .who{background:#1e2633} .msg.me .who svg{width:16px;height:16px;fill:#9aa6b8}
+  .msg.bot .who{background:radial-gradient(circle at 30% 30%,#6f8cff,#3b4bd8)} .msg.bot .who svg{width:16px;height:16px;fill:#ffe9b0}
+  .bubble{background:var(--bg-2);border:1px solid var(--line-2);border-radius:13px;padding:11px 14px;line-height:1.5;max-width:100%;min-width:0}
+  .msg.me .bubble{background:#1a2130}
+  .bars{display:grid;gap:7px;margin-top:10px}
+  .bar{display:grid;grid-template-columns:minmax(70px,140px) 1fr auto;gap:10px;align-items:center;font-size:12px}
+  .bar .t{color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar .track{height:9px;border-radius:5px;background:#202836;overflow:hidden}
+  .bar .fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-2));border-radius:5px}
+  .bar .n{font-family:var(--mono);color:var(--muted)}
+  details summary{cursor:pointer;color:var(--muted);font-size:12px;margin-top:8px}
+  pre{background:#0b0f15;border:1px solid var(--line);color:#d9e3f0;padding:10px;border-radius:9px;overflow:auto;font-family:var(--mono);font-size:12px;white-space:pre-wrap}
+  .ask{display:flex;gap:10px;margin-top:14px}
+  .ask .field{flex:1}
+  .suggest{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .suggest button{background:var(--bg-2);border:1px solid var(--line-2);border-radius:99px;padding:6px 12px;color:var(--ink-2);cursor:pointer;font-size:12px}
+  .suggest button:hover{border-color:var(--gold-line);color:var(--gold-2)}
+  .dots::after{content:"…";animation:d 1.2s infinite} @keyframes d{50%{opacity:.2}}
+
+  @media (max-width:1180px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.main-grid{grid-template-columns:1fr}}
+  @media (max-width:860px){
+    .app{grid-template-columns:1fr}
+    aside{position:static;height:auto;flex-direction:row;overflow-x:auto;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line)}
+    .brand{padding:0 10px 0 0} .brand small,.side-foot{display:none}
+    .nav{width:auto;white-space:nowrap} .nav.active::before{display:none}
+    main{padding:16px} .top{flex-wrap:wrap} .search{order:3;max-width:none;flex-basis:100%}
+    .rows .k{width:120px}
+  }
+  @media (max-width:520px){.kpis{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ======================= SIDEBAR ======================= -->
+  <aside>
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#e8b04b" stroke-width="1.8" stroke-linejoin="round">
+        <path d="M17 4 30 10.5 17 17 4 10.5Z" fill="rgba(232,176,75,.18)"/><path d="M4 16.5 17 23 30 16.5"/><path d="M4 22.5 17 29 30 22.5"/>
+      </svg>
+      <div><b>HC ERP Portal</b><small>Healthcare ERP · Lakehouse</small></div>
+    </div>
+    <button class="nav active" data-page="overview"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg>Overview</button>
+    <button class="nav" data-page="patients"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></svg>Patient Lookup</button>
+    <button class="nav" data-page="analytics"><svg viewBox="0 0 24 24"><path d="M5 20V11M10 20V5M15 20v-7M20 20V9"/></svg>Analytics</button>
+    <button class="nav" data-page="finance"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>Finance</button>
+    <button class="nav" data-page="operations"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M11 7.2 6.2 16.8M13 7.2l4.8 9.6M7.5 19h9"/></svg>Operations</button>
+    <button class="nav" data-page="genie"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01"/></svg>Genie Chat</button>
+    <div class="side-foot">Data is governed by <b>Unity Catalog</b>. What you see depends on your groups — masked values are <span class="masked">highlighted</span>.</div>
+  </aside>
+
+  <main>
+    <!-- ======================= TOP BAR ======================= -->
+    <div class="top">
+      <div><h1 id="pageTitle">Overview</h1><div class="sub" id="pageSub">Gold KPIs across all facilities you can access</div></div>
+      <form class="search" id="topSearch">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="topQ" placeholder="Search patients (masked)…" autocomplete="off">
+        <button class="go" aria-label="Search"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </form>
+      <div class="user">
+        <div class="avatar" id="avatarBtn"><span id="initials">··</span><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+        <div class="menu" id="userMenu"><div class="em" id="userEmail">—</div><div class="hint" style="color:var(--muted);font-size:12px;margin-top:8px">Your access groups</div><div id="userGroups"></div></div>
+      </div>
+    </div>
+
+    <!-- ======================= OVERVIEW ======================= -->
+    <section class="page active" id="overview">
+      <div class="grid kpis" id="kpis"></div>
+      <div class="grid main-grid">
+        <div class="card" id="ovPatient"></div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-head"><div><h2>Operational Trends</h2><div class="hint">Encounters (bars) and revenue (line)</div></div>
+              <select class="pill right" id="range"><option value="30">Last 30 days</option><option value="60">Last 60 days</option><option value="90" selected>Last 90 days</option></select></div>
+            <div class="stats" id="opStats"></div>
+            <canvas id="trendChart" height="190"></canvas>
+          </div>
+          <div class="card" id="ovGenie"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= PATIENT LOOKUP ======================= -->
+    <section class="page" id="patients">
+      <div class="grid main-grid" style="margin-top:0">
+        <div class="card">
+          <div class="card-head"><div><h2>Find a patient</h2><div class="hint">Name, patient ID or city · results respect your facility access</div></div></div>
+          <form class="field" id="pSearch" style="gap:8px">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="pQ" placeholder="Search by name, patient ID or city…" autocomplete="off">
+            <select class="pill" id="pFac"><option value="">All facilities</option><option>FAC-CHN</option><option>FAC-BLR</option><option>FAC-HYD</option><option>FAC-MUM</option></select>
+            <button class="go" aria-label="Search"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          </form>
+          <div class="tw" id="pTable" style="margin-top:14px"></div>
+        </div>
+        <div class="card" id="pDetail"><div class="empty">Select a patient to see details.</div></div>
+      </div>
+    </section>
+
+    <!-- ======================= ANALYTICS ======================= -->
+    <section class="page" id="analytics">
+      <div class="grid main-grid" style="margin-top:0">
+        <div class="card"><div class="card-head"><div><h2>Weekly encounters by facility</h2><div class="hint">Last 9 full weeks · hover a week for exact numbers</div></div></div><canvas id="facChart" height="210"></canvas></div>
+        <div class="card"><div class="card-head"><div><h2>Revenue by department</h2><div class="hint">All time, INR</div></div></div><canvas id="deptChart" height="210"></canvas></div>
+      </div>
+      <div class="card" style="margin-top:18px"><div class="card-head"><div><h2>Readmissions by diagnosis</h2><div class="hint">ICD-10, highest rate first</div></div></div><div class="tw" id="readm"></div></div>
+    </section>
+
+    <!-- ======================= FINANCE ======================= -->
+    <section class="page" id="finance">
+      <div class="grid kpis" id="finKpis"></div>
+      <div class="grid main-grid">
+        <div class="card"><div class="card-head"><div><h2>Billed vs approved by payer</h2><div class="hint">INR</div></div></div><canvas id="payerChart" height="230"></canvas></div>
+        <div class="card"><div class="card-head"><div><h2>Payer scorecard</h2><div class="hint">Denial and collection rates</div></div></div><div class="tw" id="payerTable"></div></div>
+      </div>
+    </section>
+
+    <!-- ======================= OPERATIONS ======================= -->
+    <section class="page" id="operations">
+      <div class="grid kpis" id="opsKpis"></div>
+      <div class="card" style="margin-top:18px"><div class="card-head"><div><h2>Low stock &amp; near-expiry items</h2><div class="hint">Pharmacy and supplies · filtered to your facilities</div></div></div><div class="tw" id="invTable"></div></div>
+    </section>
+
+    <!-- ======================= GENIE ======================= -->
+    <section class="page" id="genie"><div class="card" id="fullGenie"></div></section>
+  </main>
+</div>
+
+<script>
+/* ============================== helpers ============================== */
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inr = n => n == null ? '—' : '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits: 0});
+const inrShort = n => { if (n == null) return '—'; const v = Number(n), a = Math.abs(v);
+  if (a >= 1e7) return '₹' + (v / 1e7).toFixed(2) + ' Cr'; if (a >= 1e5) return '₹' + (v / 1e5).toFixed(2) + ' L';
+  if (a >= 1e3) return '₹' + (v / 1e3).toFixed(1) + ' K'; return '₹' + v.toFixed(0); };
+const num = (n, d = 0) => n == null ? '—' : Number(n).toLocaleString('en-IN', {maximumFractionDigits: d});
+const isMasked = v => typeof v === 'string' && /\*{2,}|^XXXX|\[REDACTED\]|^H-[0-9a-f]{12}$/.test(v);
+const show = v => v == null ? '—' : isMasked(v) ? `<span class="masked">${esc(v)}</span>` : esc(v);
+const FAC = {'FAC-CHN': 'Chennai', 'FAC-BLR': 'Bengaluru', 'FAC-HYD': 'Hyderabad', 'FAC-MUM': 'Mumbai'};
+const COLORS = ['#e8b04b', '#7aa2ff', '#4ade80', '#f472b6', '#22d3ee', '#a78bfa'];
+const ICON = {
+  people: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.6"/><path d="M3 20c.6-3.6 3-5.5 6-5.5s5.4 1.9 6 5.5"/><path d="M15 14.6c2.6 0 4.6 1.7 5.2 4.6"/></svg>',
+  shield: '<svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 3 8.2 7 10 4-1.8 7-5.5 7-10V6z"/><path d="M12 9v6M9 12h6"/></svg>',
+  coin: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9 8h6M9 11h6M12 11c2.2 0 3 1.4 3 2.5S13.5 16 12 16H9l5 3"/></svg>',
+  nodes: '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M11 7.2 6.2 16.8M13 7.2l4.8 9.6"/></svg>',
+  bed: '<svg viewBox="0 0 24 24"><path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="11" r="2"/></svg>',
+  box: '<svg viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg>',
+  clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>',
+};
+const ROWICON = {
+  cal: '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
+  heart: '<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>',
+  shield: '<svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 3 8.2 7 10 4-1.8 7-5.5 7-10V6z"/></svg>',
+  doc: '<svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>',
+  pin: '<svg viewBox="0 0 24 24"><path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/></svg>',
+  drop: '<svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>',
+};
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+function table(rows, cols, onRow) {
+  if (!rows || !rows.length) return '<div class="empty">No rows visible for your access level.</div>';
+  cols = cols || Object.keys(rows[0]);
+  return '<table><thead><tr>' + cols.map(c => `<th>${esc(c.replace(/_/g, ' '))}</th>`).join('') + '</tr></thead><tbody>' +
+    rows.map((r, i) => `<tr ${onRow ? `class="click" data-i="${i}"` : ''}>` + cols.map(c => {
+      const v = r[c];
+      if (v === true) return '<td><span class="badge high">yes</span></td>';
+      if (v === false) return '<td><span class="badge low">no</span></td>';
+      if (typeof v === 'number') return `<td class="num">${/inr|amount|revenue|billed|approved/.test(c) ? inr(v) : num(v, 2)}</td>`;
+      return `<td>${show(v)}</td>`;
+    }).join('') + '</tr>').join('') + '</tbody></table>';
+}
+function bindRows(el, rows, fn) { el.querySelectorAll('tr[data-i]').forEach(tr => tr.onclick = () => fn(rows[tr.dataset.i])); }
+function spark(values) {
+  if (!values.length) return '';
+  if (values.length > 16) { const n = 14, size = values.length / n;   // smooth: average into 14 buckets
+    values = Array.from({length: n}, (_, i) => { const c = values.slice(Math.floor(i * size), Math.floor((i + 1) * size)); return c.reduce((s, v) => s + v, 0) / (c.length || 1); }); }
+  const w = 110, h = 36, max = Math.max(...values), min = Math.min(...values), span = (max - min) || 1;
+  const pts = values.map((v, i) => [values.length === 1 ? w : i * w / (values.length - 1), h - 4 - (v - min) / span * (h - 8)]);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('');
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="sg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e8b04b" stop-opacity=".35"/><stop offset="1" stop-color="#e8b04b" stop-opacity="0"/></linearGradient></defs>
+    <path d="${d}L${w} ${h}L0 ${h}Z" fill="url(#sg)"/><path d="${d}" fill="none" stroke="#e8b04b" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+}
+/* Compare the last half of the window with the half before it */
+function delta(values, mode = 'sum') {
+  if (values.length < 4) return '<span class="delta flat">—</span>';
+  const h = Math.floor(values.length / 2), a = values.slice(0, h), b = values.slice(-h);
+  const agg = x => mode === 'sum' ? x.reduce((s, v) => s + v, 0) : x.reduce((s, v) => s + v, 0) / x.length;
+  const A = agg(a), B = agg(b); if (!A) return '<span class="delta flat">—</span>';
+  const p = (B - A) / A * 100, cls = Math.abs(p) < 0.5 ? 'flat' : p > 0 ? 'up' : 'down';
+  return `<span class="delta ${cls}" title="Last ${h} days vs the ${h} days before">${p > 0 ? '▲' : p < 0 ? '▼' : '•'} ${Math.abs(p).toFixed(0)}%</span>`;
+}
+function kpiCard(icon, label, value, series, mode, title) {
+  return `<div class="card kpi"><div class="ic">${ICON[icon]}</div><div class="label">${label}</div>
+    <div class="val" title="${esc(title || '')}">${value}</div><div class="foot">${delta(series, mode)}${spark(series)}</div></div>`;
+}
+// Fixed colour per facility (validated for colour-blind separation on the dark surface); colour follows the entity, never its rank
+const FAC_COLOR = {'FAC-BLR': '#3987e5', 'FAC-CHN': '#d95926', 'FAC-HYD': '#199e70', 'FAC-MUM': '#c98500'};
+// Direct labels at the end of each line: coloured dot + name in text ink, nudged apart so they never overlap
+const endLabels = {id: 'endLabels', afterDatasetsDraw(c) {
+  const ctx = c.ctx, items = c.data.datasets.map((d, i) => { const m = c.getDatasetMeta(i), pt = m.data.at(-1);
+    return m.hidden || !pt ? null : {x: pt.x, y: pt.y, label: d.label, color: d.borderColor}; }).filter(Boolean).sort((a, b) => a.y - b.y);
+  for (let i = 1; i < items.length; i++) if (items[i].y - items[i - 1].y < 15) items[i].y = items[i - 1].y + 15;
+  ctx.save(); ctx.font = '600 12px Manrope, system-ui, sans-serif'; ctx.textBaseline = 'middle';
+  items.forEach(it => { ctx.fillStyle = it.color; ctx.beginPath(); ctx.arc(it.x + 14, it.y, 4, 0, 7); ctx.fill();
+    ctx.fillStyle = '#c9d0db'; ctx.fillText(it.label, it.x + 22, it.y); });
+  ctx.restore(); }};
+const charts = {};
+function chart(id, cfg) { charts[id]?.destroy(); charts[id] = new Chart($('#' + id), cfg); }
+if (window.Chart) {
+  Chart.defaults.color = '#8792a3'; Chart.defaults.borderColor = '#1f2631';
+  Chart.defaults.font.family = 'Manrope, system-ui, sans-serif';
+  Chart.defaults.plugins.legend.labels.boxWidth = 10;
+}
+function byDay(rows) {
+  const m = new Map();
+  rows.forEach(r => { const d = r.kpi_date, o = m.get(d) || {d, enc: 0, adm: 0, er: 0, rev: 0, los: [], readm: []};
+    o.enc += r.total_encounters || 0; o.adm += r.admissions || 0; o.er += r.er_visits || 0; o.rev += r.gross_revenue_inr || 0;
+    if (r.avg_los_days != null) o.los.push(r.avg_los_days); if (r.readmission_rate_pct != null) o.readm.push(r.readmission_rate_pct);
+    m.set(d, o); });
+  return [...m.values()].sort((a, b) => a.d < b.d ? -1 : 1).map(o => ({...o,
+    los: o.los.length ? o.los.reduce((s, v) => s + v, 0) / o.los.length : null,
+    readm: o.readm.length ? o.readm.reduce((s, v) => s + v, 0) / o.readm.length : null}));
+}
+
+/* ============================== navigation ============================== */
+const TITLES = {
+  overview: ['Overview', 'Gold KPIs across all facilities you can access'],
+  patients: ['Patient Lookup', 'Protected health information · masked by Unity Catalog for your identity'],
+  analytics: ['Analytics', 'Clinical activity, departments and readmissions'],
+  finance: ['Finance', 'Revenue cycle by insurer and scheme'],
+  operations: ['Operations', 'Pharmacy and supply stock'],
+  genie: ['Genie Chat', 'Ask questions about your healthcare data in plain English'],
+};
+const loaded = {};
+function go(page) {
+  document.querySelectorAll('.nav').forEach(n => n.classList.toggle('active', n.dataset.page === page));
+  document.querySelectorAll('section.page').forEach(s => s.classList.toggle('active', s.id === page));
+  $('#pageTitle').textContent = TITLES[page][0]; $('#pageSub').textContent = TITLES[page][1];
+  if (!loaded[page]) { loaded[page] = true; LOAD[page]?.(); }
+}
+document.querySelectorAll('.nav').forEach(n => n.onclick = () => go(n.dataset.page));
+$('#avatarBtn').onclick = e => { e.stopPropagation(); $('#userMenu').classList.toggle('open'); };
+document.addEventListener('click', () => $('#userMenu').classList.remove('open'));
+$('#topSearch').onsubmit = e => { e.preventDefault(); $('#pQ').value = $('#topQ').value; go('patients'); searchPatients(); };
+
+/* ============================== patient detail (shared) ============================== */
+function riskOf(encs) {
+  const n = encs.length, readm = encs.some(e => e.readmission_flag);
+  if (readm || n >= 4) return ['High', 'high']; if (n >= 2) return ['Medium', 'med']; return ['Low', 'low'];
+}
+async function renderPatient(el, p) {
+  const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+  el.innerHTML = `<div class="phead"><div class="pic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c1-4.4 4.6-6.6 8.5-6.6s7.5 2.2 8.5 6.6z"/></svg></div>
+      <div><div class="nm">${show(name || p.patient_id)}</div>
+      <div class="meta">${esc(p.gender === 'F' ? 'Female' : p.gender === 'M' ? 'Male' : 'Other')} &nbsp;|&nbsp; Age band ${esc(p.age_band ?? '—')} &nbsp;|&nbsp; MRN ${show(p.mrn)}</div></div></div>
+    <div class="tabs"><button class="active" data-t="ov">Overview</button><button data-t="enc">Encounters</button><button data-t="clm">Claims</button><button data-t="id">Identity</button></div>
+    <div class="tabbody"><div class="empty dots">Loading</div></div>`;
+  const body = el.querySelector('.tabbody');
+  let encs = [], claims = [];
+  try { [encs, claims] = await Promise.all([api(`/api/patients/${encodeURIComponent(p.patient_id)}/encounters`),
+                                             api(`/api/patients/${encodeURIComponent(p.patient_id)}/claims`).catch(() => [])]); }
+  catch (e) { body.innerHTML = `<div class="empty err">${esc(e.message)}</div>`; return; }
+  const last = encs[0], [risk, rc] = riskOf(encs);
+  const views = {
+    ov: () => `<div class="rows">
+      <div class="r">${ROWICON.cal}<span class="k">Last visit</span><span class="v">${last ? esc(String(last.admit_ts).slice(0, 10)) : '—'}</span></div>
+      <div class="r">${ROWICON.heart}<span class="k">Last department</span><span class="v">${esc(last?.department ?? '—')}</span></div>
+      <div class="r">${ROWICON.pin}<span class="k">Home facility</span><span class="v">${esc(FAC[p.home_facility_id] || p.home_facility_id || '—')}</span></div>
+      <div class="r">${ROWICON.drop}<span class="k">Blood group</span><span class="v">${esc(p.blood_group ?? '—')}</span></div>
+      <div class="r">${ROWICON.shield}<span class="k">Utilization risk</span><span class="badge ${rc}" title="Rule-based: readmission or 4+ visits = High, 2–3 = Medium">${risk}</span></div>
+      <div class="r">${ROWICON.doc}<span class="k">Encounters / claims</span><span class="v">${encs.length} / ${claims.length}</span></div></div>`,
+    enc: () => `<div class="tw" style="max-height:300px">${table(encs, ['admit_ts', 'facility_id', 'department', 'encounter_type', 'diagnosis_desc', 'los_days', 'total_charges_inr'])}</div>`,
+    clm: () => `<div class="tw" style="max-height:300px">${table(claims, ['submitted_date', 'payer', 'claim_status', 'billed_amount_inr', 'approved_amount_inr', 'denial_reason'])}</div>`,
+    id: () => `<div class="rows">
+      <div class="r">${ROWICON.doc}<span class="k">Patient ID</span><span class="v">${show(p.patient_id)}</span></div>
+      <div class="r">${ROWICON.cal}<span class="k">Date of birth</span><span class="v">${show(p.dob)}</span></div>
+      <div class="r">${ROWICON.doc}<span class="k">Phone</span><span class="v">${show(p.phone)}</span></div>
+      <div class="r">${ROWICON.doc}<span class="k">Email</span><span class="v">${show(p.email)}</span></div>
+      <div class="r">${ROWICON.shield}<span class="k">Aadhaar</span><span class="v">${show(p.aadhaar_no)}</span></div>
+      <div class="r">${ROWICON.pin}<span class="k">City</span><span class="v">${show(p.city)}</span></div></div>`,
+  };
+  const tabs = el.querySelectorAll('.tabs button');
+  tabs.forEach(b => b.onclick = () => { tabs.forEach(x => x.classList.toggle('active', x === b)); body.innerHTML = views[b.dataset.t](); });
+  body.innerHTML = views.ov();
+}
+
+/* ============================== genie (shared) ============================== */
+let convId = null;
+const SUGGEST = ['Which payer has the highest denial rate?', 'Average length of stay by facility last month', 'Top 5 diagnoses by readmission rate', 'Which items are low on stock in Chennai?'];
+function genieWidget(el, compact) {
+  el.innerHTML = `<div class="card-head"><div><h2>✦ Genie — Your AI Assistant</h2><div class="hint">Ask questions about your healthcare data · answers respect your access</div></div></div>
+    <div class="chat" style="max-height:${compact ? 300 : 560}px;min-height:${compact ? 120 : 360}px">
+      <div class="msg bot"><div class="who"><svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.8L21 11l-6.8 2.2L12 20l-2.2-6.8L3 11l6.8-2.2z"/></svg></div>
+      <div class="bubble">Hi! Ask me about admissions, length of stay, revenue, payers, stock or readmissions.</div></div></div>
+    <div class="suggest">${SUGGEST.slice(0, compact ? 2 : 4).map(s => `<button type="button">${esc(s)}</button>`).join('')}</div>
+    <form class="ask"><div class="field"><input placeholder="Ask a question about your data…" autocomplete="off"></div>
+      <button class="go" style="width:44px;height:44px" aria-label="Ask"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>`;
+  const chat = el.querySelector('.chat'), input = el.querySelector('input');
+  const bot = '<div class="who"><svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.8L21 11l-6.8 2.2L12 20l-2.2-6.8L3 11l6.8-2.2z"/></svg></div>';
+  async function ask(q) {
+    q = (q || '').trim(); if (!q) return; input.value = '';
+    chat.insertAdjacentHTML('beforeend', `<div class="msg me"><div class="who"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6z"/></svg></div><div class="bubble">${esc(q)}</div></div>`);
+    chat.insertAdjacentHTML('beforeend', `<div class="msg bot">${bot}<div class="bubble"><span class="dots">Thinking</span></div></div>`);
+    const b = chat.lastElementChild.querySelector('.bubble'); chat.scrollTop = chat.scrollHeight;
+    try {
+      const a = await api('/api/genie/ask', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({question: q, conversation_id: convId})});
+      convId = a.conversation_id;
+      const rows = (a.rows || []).map(r => Object.fromEntries(a.columns.map((c, i) => [c, r[i]])));
+      let viz = '';
+      if (rows.length && a.columns.length >= 2 && rows.length <= 12 && rows.every(r => !isNaN(parseFloat(r[a.columns[a.columns.length - 1]])))) {
+        const vc = a.columns[a.columns.length - 1], max = Math.max(...rows.map(r => Math.abs(parseFloat(r[vc])))) || 1;
+        viz = `<div class="bars">${rows.map(r => { const v = parseFloat(r[vc]);
+          return `<div class="bar"><span class="t" title="${esc(r[a.columns[0]])}">${esc(r[a.columns[0]])}</span><div class="track"><div class="fill" style="width:${Math.abs(v) / max * 100}%"></div></div><span class="n">${num(v, 2)}</span></div>`; }).join('')}</div>`;
+      } else if (rows.length) viz = `<div class="tw" style="max-height:240px;margin-top:10px">${table(rows)}</div>`;
+      b.innerHTML = `<div>${esc(a.text || 'Here is what I found.')}</div>${viz}` + (a.sql ? `<details><summary>Show SQL</summary><pre>${esc(a.sql)}</pre></details>` : '');
+    } catch (e) { b.innerHTML = `<span class="err">⚠ ${esc(e.message)}</span>`; }
+    chat.scrollTop = chat.scrollHeight;
+  }
+  el.querySelector('form').onsubmit = e => { e.preventDefault(); ask(input.value); };
+  el.querySelectorAll('.suggest button').forEach(s => s.onclick = () => ask(s.textContent));
+}
+
+/* ============================== page loaders ============================== */
+async function loadOverview() {
+  const days = Number($('#range').value);
+  try {
+    const [k, t] = await Promise.all([api('/api/kpis?days=' + days), api('/api/trend?days=' + days)]);
+    const d = byDay(t);
+    $('#kpis').innerHTML =
+      kpiCard('people', 'Total Encounters', num(k.encounters), d.map(x => x.enc), 'sum') +
+      kpiCard('shield', 'Admissions', num(k.admissions), d.map(x => x.adm), 'sum') +
+      kpiCard('coin', `Revenue (${days}d)`, inrShort(k.revenue_inr), d.map(x => x.rev), 'sum', inr(k.revenue_inr)) +
+      kpiCard('nodes', 'Readmission Rate', num(k.readmission_rate_pct, 1) + '%', d.map(x => x.readm ?? 0), 'avg');
+    $('#opStats').innerHTML = `<div>Active inpatients<b>${num(k.active_inpatients)}</b></div><div>ER visits<b>${num(k.er_visits)}</b></div><div>Avg LOS<b>${num(k.avg_los_days, 1)} days</b></div>`;
+    const weekly = days > 45, groups = new Map();
+    d.forEach(x => { const dt = new Date(x.d + 'T00:00:00'), key = weekly ? new Date(dt - ((dt.getDay() + 6) % 7) * 864e5).toISOString().slice(0, 10) : x.d;
+      const g = groups.get(key) || {enc: 0, rev: 0, n: 0}; g.enc += x.enc; g.rev += x.rev; g.n += 1; groups.set(key, g); });
+    groups.forEach(g => { g.enc = +(g.enc / g.n).toFixed(1); g.rev = g.rev / g.n; });   // per-day average, so partial weeks compare fairly
+    const labels = [...groups.keys()], fmt = s => new Date(s + 'T00:00:00').toLocaleDateString('en-IN', {day: 'numeric', month: 'short'});
+    if (window.Chart) chart('trendChart', {data: {labels: labels.map(fmt), datasets: [
+      {type: 'bar', label: weekly ? 'Encounters / day (weekly avg)' : 'Encounters / day', data: labels.map(l => groups.get(l).enc), backgroundColor: 'rgba(135,146,163,.28)', borderRadius: 4, yAxisID: 'y'},
+      {type: 'line', label: weekly ? 'Revenue / day (weekly avg)' : 'Revenue / day', data: labels.map(l => groups.get(l).rev), borderColor: '#e8b04b', backgroundColor: '#e8b04b', pointRadius: 3, pointBackgroundColor: '#f6d27e', cubicInterpolationMode: 'monotone', yAxisID: 'y1'}]},
+      options: {plugins: {legend: {position: 'bottom'}, tooltip: {callbacks: {label: c => c.dataset.yAxisID === 'y1' ? 'Revenue: ' + inr(c.raw) : c.dataset.label + ': ' + c.raw}}},
+        scales: {x: {grid: {display: false}}, y: {beginAtZero: true}, y1: {position: 'right', beginAtZero: true, grid: {display: false}, ticks: {callback: v => inrShort(v)}}}}});
+  } catch (e) { $('#kpis').innerHTML = `<div class="card err">⚠ ${esc(e.message)}</div>`; }
+}
+function buildOverviewPatient() {
+  const el = $('#ovPatient');
+  el.innerHTML = `<div class="card-head"><div><h2>Patient Lookup</h2><div class="hint">Search securely with masked identifiers</div></div></div>
+    <form class="field" id="ovForm"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="ovQ" placeholder="Search by name, patient ID or city…" autocomplete="off">
+      <button class="go" aria-label="Search"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>
+    <div class="results" id="ovRes"></div><div class="pcard" id="ovCard"><div class="empty">Search and pick a patient.</div></div>`;
+  const run = async () => {
+    const res = $('#ovRes'); res.innerHTML = '<div class="empty dots">Searching</div>';
+    try {
+      const rows = (await api('/api/patients?q=' + encodeURIComponent($('#ovQ').value))).slice(0, 8);
+      if (!rows.length) { res.innerHTML = '<div class="empty">No patients visible for your access.</div>'; return; }
+      res.innerHTML = rows.map((p, i) => `<button type="button" class="res" data-i="${i}"><span class="mini">${esc((p.gender || '?')[0])}</span>
+        <span><div>${show([p.first_name, p.last_name].filter(Boolean).join(' ') || p.patient_id)}</div><div class="m">${esc(p.patient_id)} · ${esc(FAC[p.home_facility_id] || p.home_facility_id || '')}</div></span></button>`).join('');
+      res.querySelectorAll('.res').forEach(b => b.onclick = () => { res.querySelectorAll('.res').forEach(x => x.classList.toggle('sel', x === b)); renderPatient($('#ovCard'), rows[b.dataset.i]); });
+      res.querySelector('.res').click();
+    } catch (e) { res.innerHTML = `<div class="empty err">⚠ ${esc(e.message)}</div>`; }
+  };
+  $('#ovForm').onsubmit = e => { e.preventDefault(); run(); };
+  run();
+}
+async function searchPatients() {
+  const q = encodeURIComponent($('#pQ').value), f = $('#pFac').value;
+  $('#pTable').innerHTML = '<div class="empty dots">Searching</div>';
+  try {
+    const rows = await api(`/api/patients?q=${q}${f ? '&facility=' + f : ''}`);
+    $('#pTable').innerHTML = table(rows, ['patient_id', 'first_name', 'last_name', 'gender', 'age_band', 'mrn', 'phone', 'home_facility_id'], true);
+    bindRows($('#pTable'), rows, p => renderPatient($('#pDetail'), p));
+  } catch (e) { $('#pTable').innerHTML = `<div class="empty err">⚠ ${esc(e.message)}</div>`; }
+}
+$('#pSearch').onsubmit = e => { e.preventDefault(); searchPatients(); };
+
+const LOAD = {
+  overview() { buildOverviewPatient(); genieWidget($('#ovGenie'), true); loadOverview(); },
+  patients() { if (!$('#pTable').innerHTML) searchPatients(); },
+  async analytics() {
+    try {
+      // Weekly totals per facility: 9 complete 7-day blocks ending on the latest day (daily counts are too noisy to read)
+      const t = await api('/api/trend?days=63'), dates = [...new Set(t.map(r => r.kpi_date))].sort();
+      const lastDay = Date.parse(dates.at(-1) + 'T00:00:00'), WEEKS = 9;
+      const blockOf = d => Math.floor((lastDay - Date.parse(d + 'T00:00:00')) / (7 * 864e5));
+      const facs = ['FAC-BLR', 'FAC-CHN', 'FAC-HYD', 'FAC-MUM'];
+      const weekly = Object.fromEntries(facs.map(f => [f, Array(WEEKS).fill(0)]));
+      t.forEach(r => { const b = blockOf(r.kpi_date); if (b >= 0 && b < WEEKS && weekly[r.facility_id]) weekly[r.facility_id][WEEKS - 1 - b] += r.total_encounters || 0; });
+      const wkLabel = i => new Date(lastDay - (WEEKS - 1 - i) * 7 * 864e5 - 6 * 864e5).toLocaleDateString('en-IN', {day: 'numeric', month: 'short'});
+      if (window.Chart) chart('facChart', {type: 'line',
+        data: {labels: Array.from({length: WEEKS}, (_, i) => wkLabel(i)), datasets: facs.map(f => ({label: FAC[f], data: weekly[f],
+          borderColor: FAC_COLOR[f], backgroundColor: FAC_COLOR[f], borderWidth: 2, tension: 0, pointRadius: 4, pointHoverRadius: 6,
+          pointBorderColor: '#141a23', pointBorderWidth: 2}))},
+        options: {interaction: {mode: 'index', intersect: false}, layout: {padding: {right: 104}},
+          plugins: {legend: {position: 'bottom'}, tooltip: {callbacks: {title: i => 'Week of ' + i[0].label, label: c => ' ' + c.dataset.label + ': ' + c.raw + ' encounters'}}},
+          scales: {x: {grid: {display: false}}, y: {beginAtZero: true, title: {display: true, text: 'Encounters per week'}}}},
+        plugins: [endLabels]});
+      const dp = await api('/api/departments');
+      if (window.Chart) chart('deptChart', {type: 'bar', data: {labels: dp.map(r => r.department), datasets: [{label: 'Revenue', data: dp.map(r => r.revenue_inr), backgroundColor: '#e8b04b', borderRadius: 6}]},
+        options: {indexAxis: 'y', plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => inr(c.raw)}}}, scales: {x: {ticks: {callback: v => inrShort(v)}}, y: {grid: {display: false}}}}});
+      $('#readm').innerHTML = table(await api('/api/readmissions'));
+    } catch (e) { $('#readm').innerHTML = `<div class="empty err">⚠ ${esc(e.message)}</div>`; }
+  },
+  async finance() {
+    try {
+      const p = await api('/api/payers'), sum = k => p.reduce((s, r) => s + (r[k] || 0), 0), claims = sum('claims');
+      const wDen = claims ? p.reduce((s, r) => s + (r.denial_rate_pct || 0) * (r.claims || 0), 0) / claims : null;
+      $('#finKpis').innerHTML = kpiCard('coin', 'Billed', inrShort(sum('billed_inr')), [], 'sum', inr(sum('billed_inr'))) + kpiCard('shield', 'Approved', inrShort(sum('approved_inr')), [], 'sum', inr(sum('approved_inr'))) +
+        kpiCard('nodes', 'Collection Rate', num(sum('billed_inr') ? sum('approved_inr') / sum('billed_inr') * 100 : null, 1) + '%', [], 'avg') + kpiCard('people', 'Denial Rate', num(wDen, 1) + '%', [], 'avg');
+      if (window.Chart) chart('payerChart', {type: 'bar', data: {labels: p.map(r => r.payer), datasets: [
+        {label: 'Billed', data: p.map(r => r.billed_inr), backgroundColor: 'rgba(135,146,163,.35)', borderRadius: 5},
+        {label: 'Approved', data: p.map(r => r.approved_inr), backgroundColor: '#e8b04b', borderRadius: 5}]},
+        options: {plugins: {legend: {position: 'bottom'}, tooltip: {callbacks: {label: c => c.dataset.label + ': ' + inr(c.raw)}}}, scales: {x: {grid: {display: false}}, y: {ticks: {callback: v => inrShort(v)}}}}});
+      $('#payerTable').innerHTML = table(p);
+    } catch (e) { $('#payerTable').innerHTML = `<div class="empty err">⚠ ${esc(e.message)}</div>`; }
+  },
+  async operations() {
+    try {
+      const rows = await api('/api/inventory/low-stock'), low = rows.filter(r => r.stock_on_hand < r.reorder_level).length,
+            exp = rows.reduce((s, r) => s + (r.batches_expiring_30d || 0), 0), facs = new Set(rows.map(r => r.facility_id)).size;
+      $('#opsKpis').innerHTML = kpiCard('box', 'Low-stock items', num(low), [], 'sum') + kpiCard('clock', 'Batches expiring in 30d', num(exp), [], 'sum') +
+        kpiCard('nodes', 'Facilities affected', num(facs), [], 'sum') + kpiCard('bed', 'Items flagged', num(rows.length), [], 'sum');
+      $('#invTable').innerHTML = table(rows);
+    } catch (e) { $('#invTable').innerHTML = `<div class="empty err">⚠ ${esc(e.message)}</div>`; }
+  },
+  genie() { genieWidget($('#fullGenie'), false); },
+};
+$('#range').onchange = loadOverview;
+
+/* ============================== boot ============================== */
+api('/api/me').then(m => {
+  const local = (m.email || '').split('@')[0], parts = local.split(/[._-]+/).filter(Boolean);
+  $('#initials').textContent = ((parts[0] || '?').charAt(0) + (parts[1] || local).charAt(parts[1] ? 0 : 1)).toUpperCase();
+  $('#userEmail').textContent = m.email;
+  $('#userGroups').innerHTML = m.groups.length ? m.groups.map(g => `<span class="chip">${esc(g)}</span>`).join('') : '<span class="chip">no hc_* group</span>';
+}).catch(() => { $('#initials').textContent = '?'; });
+go('overview');
+</script>
+</body>
+</html>

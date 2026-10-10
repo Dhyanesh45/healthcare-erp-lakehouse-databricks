@@ -1,0 +1,22 @@
+# Lakeflow Spark Declarative Pipeline (SDP, formerly DLT)
+# Bronze -> Silver -> Gold medallion in one serverless, Unity-Catalog pipeline.
+resources:
+  pipelines:
+    hc_erp_medallion:
+      name: "[${bundle.target}] HC-ERP Medallion (SDP/DLT)"
+      catalog: ${var.catalog}
+      schema: silver                 # default schema; tables override with fully-qualified names
+      serverless: true
+      photon: true
+      channel: CURRENT
+      continuous: false              # triggered by the job; flip to true for near-real-time
+      configuration:
+        hc.catalog: ${var.catalog}
+        hc.landing_path: /Volumes/${var.catalog}/landing/raw_files
+      libraries:
+        - file: { path: ../src/pipelines/bronze/bronze_ingest.py }   # classic `import dlt` API
+        - file: { path: ../src/pipelines/silver/silver_cleanse.py }  # new `pyspark.pipelines` (SDP) API
+        - file: { path: ../src/pipelines/gold/gold_marts.sql }       # SQL materialized views
+      notifications:
+        - email_recipients: [ "${var.notification_email}" ]
+          alerts: [ on-update-failure, on-update-fatal-failure, on-flow-failure ]

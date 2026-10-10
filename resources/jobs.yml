@@ -1,0 +1,126 @@
+# Lakeflow Job — orchestrates the whole lakehouse end to end.
+#
+#   setup_catalog ─► security_functions ─► generate_data ─► medallion_pipeline
+#        medallion_pipeline ─┬─► apply_governance ──────────────┐
+#                            ├─► per_facility_kpis (for_each) ──┴─► refresh_genie_metadata
+#                            └─► dq_report ─► breach_check (if/else) ─► notify_on_breach
+resources:
+  jobs:
+    hc_erp_end_to_end:
+      name: "[${bundle.target}] HC-ERP End-to-End Lakehouse"
+      max_concurrent_runs: 1
+      timeout_seconds: 7200
+      tags:
+        domain: healthcare
+        data_classification: phi
+      email_notifications:
+        on_failure: [ "${var.notification_email}" ]
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"     # 02:00 daily
+        timezone_id: Asia/Kolkata
+        pause_status: PAUSED                       # unpause in prod
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: batch_size
+          default: "500"
+        - name: los_alert_threshold
+          default: "6.0"
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"
+            dependencies: [ "faker==30.8.2" ]
+
+      tasks:
+        # 1 ─ Unity Catalog objects (catalog, schemas, volume, groups' grants)
+        - task_key: setup_catalog
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../src/sql/00_setup_catalog.sql
+            parameters:
+              catalog: "{{job.parameters.catalog}}"
+
+        # 1b ─ Masking + row-filter functions (pipeline tables reference them)
+        - task_key: security_functions
+          depends_on: [ { task_key: setup_catalog } ]
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../src/sql/01_security_functions.sql
+            parameters:
+              catalog: "{{job.parameters.catalog}}"
+
+        # 2 ─ Synthetic ERP extracts land as JSON files in a UC Volume
+        - task_key: generate_data
+          depends_on: [ { task_key: security_functions } ]
+          environment_key: default
+          spark_python_task:
+            python_file: ../src/notebooks/01_generate_erp_data.py
+            parameters: [ "--catalog", "{{job.parameters.catalog}}", "--batch-size", "{{job.parameters.batch_size}}" ]
+
+        # 3 ─ SDP / DLT medallion pipeline
+        - task_key: medallion_pipeline
+          depends_on: [ { task_key: generate_data } ]
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.hc_erp_medallion.id}
+            full_refresh: false
+
+        # 4a ─ Masking functions, row filters, tags, grants
+        - task_key: apply_governance
+          depends_on: [ { task_key: medallion_pipeline } ]
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../src/sql/02_governance_security.sql
+            parameters:
+              catalog: "{{job.parameters.catalog}}"
+
+        # 4b ─ Data-quality report from the pipeline event log; sets task values
+        - task_key: dq_report
+          depends_on: [ { task_key: medallion_pipeline } ]
+          environment_key: default
+          spark_python_task:
+            python_file: ../src/notebooks/03_dq_report.py
+            parameters: [ "--catalog", "{{job.parameters.catalog}}", "--los-threshold", "{{job.parameters.los_alert_threshold}}" ]
+
+        # 4c ─ For-each task: compute KPI snapshot per facility in parallel
+        - task_key: per_facility_kpis
+          depends_on: [ { task_key: medallion_pipeline } ]
+          for_each_task:
+            inputs: '["FAC-CHN","FAC-BLR","FAC-HYD","FAC-MUM"]'
+            concurrency: 4
+            task:
+              task_key: per_facility_kpis_iteration
+              environment_key: default
+              spark_python_task:
+                python_file: ../src/notebooks/04_facility_snapshot.py
+                parameters: [ "--catalog", "{{job.parameters.catalog}}", "--facility", "{{input}}" ]
+
+        # 5 ─ If/else condition on a task value produced by dq_report
+        - task_key: breach_check
+          depends_on: [ { task_key: dq_report } ]
+          condition_task:
+            op: GREATER_THAN
+            left: "{{tasks.dq_report.values.failed_record_pct}}"
+            right: "2"
+
+        - task_key: notify_on_breach
+          depends_on: [ { task_key: breach_check, outcome: "true" } ]
+          environment_key: default
+          spark_python_task:
+            python_file: ../src/notebooks/05_quality_alert.py
+            parameters: [ "--catalog", "{{job.parameters.catalog}}" ]
+
+        # 6 ─ Comments/metadata that Genie uses to understand the gold layer
+        - task_key: refresh_genie_metadata
+          depends_on:
+            - { task_key: apply_governance }
+            - { task_key: per_facility_kpis }
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../src/sql/06_genie_metadata.sql
+            parameters:
+              catalog: "{{job.parameters.catalog}}"
