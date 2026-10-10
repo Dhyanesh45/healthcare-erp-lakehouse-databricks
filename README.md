@@ -7,6 +7,43 @@ with one Asset Bundle.
 
 **New to Databricks? Start with [`docs/BEGINNER_GUIDE.md`](docs/BEGINNER_GUIDE.md).**
 
+## What it looks like
+
+All data shown is synthetic (generated with Faker) — no real patient information.
+
+### Orchestration — multi-task Lakeflow Job
+Catalog setup → security functions → data generation → medallion pipeline, then a
+data-quality report with an if/else breach check, governance, a for-each per-facility
+KPI task and a Genie metadata refresh.
+
+![Lakeflow Job DAG](docs/images/job-dag.png)
+
+### Medallion pipeline — bronze → silver → gold
+Raw landing files flow through cleansed silver tables (CDC / SCD2 for patients,
+quarantine for bad encounters) into gold marts.
+
+![Pipeline lineage graph](docs/images/pipeline-lineage.png)
+
+### Databricks App portal
+The portal queries gold tables on behalf of the signed-in user, so Unity Catalog
+column masks and row filters decide what each viewer sees.
+
+**Patient Lookup** — PHI masked by Unity Catalog for the viewer's identity
+
+![Patient Lookup](docs/images/portal-patient-lookup.png)
+
+**Finance** — revenue cycle by payer
+
+![Finance](docs/images/portal-finance.png)
+
+**Operations** — low-stock and near-expiry pharmacy and supply items
+
+![Operations](docs/images/portal-operations.png)
+
+**Genie Chat** — plain-English questions answered from the governed gold tables
+
+![Genie Chat](docs/images/portal-genie-chat.png)
+
 ## Quick start
 ```bash
 databricks auth login --host https://<workspace>
