@@ -32,6 +32,10 @@ column masks and row filters decide what each viewer sees.
 
 ![Patient Lookup](docs/images/portal-patient-lookup.png)
 
+**Analytics** — weekly encounters by facility, revenue by department and readmissions by diagnosis
+
+![Analytics](docs/images/portal-analytics.png)
+
 **Finance** — revenue cycle by payer
 
 ![Finance](docs/images/portal-finance.png)
